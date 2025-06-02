@@ -1,0 +1,254 @@
+package invocation_search_service
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/ninja-cloudbuild/cloudbuild/server/build_event_protocol/build_event_handler"
+	"github.com/ninja-cloudbuild/cloudbuild/server/environment"
+	"github.com/ninja-cloudbuild/cloudbuild/server/interfaces"
+	"github.com/ninja-cloudbuild/cloudbuild/server/tables"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/alert"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/blocklist"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/db"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/perms"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/query_builder"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/status"
+
+	inpb "github.com/ninja-cloudbuild/cloudbuild/proto/invocation"
+)
+
+const (
+	// See defaultSortParams() for sort defaults.
+	defaultLimitSize     = int64(15)
+	pageSizeOffsetPrefix = "offset_"
+)
+
+type InvocationSearchService struct {
+	env environment.Env
+	h   interfaces.DBHandle
+}
+
+func NewInvocationSearchService(env environment.Env, h interfaces.DBHandle) *InvocationSearchService {
+	return &InvocationSearchService{
+		env: env,
+		h:   h,
+	}
+}
+
+func defaultSortParams() *inpb.InvocationSort {
+	return &inpb.InvocationSort{
+		SortField: inpb.InvocationSort_UPDATED_AT_USEC_SORT_FIELD,
+		Ascending: false,
+	}
+}
+
+func (s *InvocationSearchService) rawQueryInvocations(ctx context.Context, sql string, values ...interface{}) ([]*tables.Invocation, error) {
+	rows, err := s.h.RawWithOptions(ctx, db.Opts().WithQueryName("search_invocations"), sql, values...).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	invocations := make([]*tables.Invocation, 0)
+	for rows.Next() {
+		var ti tables.Invocation
+		if err := s.h.DB(ctx).ScanRows(rows, &ti); err != nil {
+			return nil, err
+		}
+		invocations = append(invocations, &ti)
+	}
+	return invocations, nil
+}
+
+func (s *InvocationSearchService) IndexInvocation(ctx context.Context, invocation *inpb.Invocation) error {
+	// This is a no-op.
+	return nil
+}
+
+func (s *InvocationSearchService) checkPreconditions(req *inpb.SearchInvocationRequest) error {
+	if req.Query == nil {
+		return status.InvalidArgumentError("The query field is required")
+	}
+	if req.Query.Host == "" && req.Query.User == "" && req.Query.CommitSha == "" && req.Query.RepoUrl == "" && req.Query.GroupId == "" {
+		return status.InvalidArgumentError("At least one search atom must be set")
+	}
+	return nil
+}
+
+// TODO(tylerw): move this to a common place -- we'll use it a bunch.
+func addPermissionsCheckToQuery(u interfaces.UserInfo, q *query_builder.Query) {
+	o := query_builder.OrClauses{}
+	o.AddOr("(i.perms & ? != 0)", perms.OTHERS_READ)
+	groupArgs := []interface{}{
+		perms.GROUP_READ,
+	}
+	groupParams := make([]string, 0)
+	for _, g := range u.GetGroupMemberships() {
+		groupArgs = append(groupArgs, g.GroupID)
+		groupParams = append(groupParams, "?")
+	}
+	groupParamString := "(" + strings.Join(groupParams, ", ") + ")"
+	groupQueryStr := fmt.Sprintf("(i.perms & ? != 0 AND i.group_id IN %s)", groupParamString)
+	o.AddOr(groupQueryStr, groupArgs...)
+	o.AddOr("(i.perms & ? != 0 AND i.user_id = ?)", perms.OWNER_READ, u.GetUserID())
+	orQuery, orArgs := o.Build()
+	q = q.AddWhereClause("("+orQuery+")", orArgs...)
+}
+
+func (s *InvocationSearchService) QueryInvocations(ctx context.Context, req *inpb.SearchInvocationRequest) (*inpb.SearchInvocationResponse, error) {
+	if err := s.checkPreconditions(req); err != nil {
+		return nil, err
+	}
+	u, err := perms.AuthenticatedUser(ctx, s.env)
+	if err != nil {
+		return nil, err
+	}
+	if blocklist.IsBlockedForStatsQuery(u.GetGroupID()) {
+		return nil, status.ResourceExhaustedErrorf("Too many rows.")
+	}
+
+	q := query_builder.NewQuery(`SELECT * FROM Invocations as i`)
+
+	// Don't include anonymous builds.
+	q.AddWhereClause("((i.user_id != '' AND i.user_id IS NOT NULL) OR (i.group_id != '' AND i.group_id IS NOT NULL))")
+
+	if user := req.GetQuery().GetUser(); user != "" {
+		q.AddWhereClause("i.user = ?", user)
+	}
+	if host := req.GetQuery().GetHost(); host != "" {
+		q.AddWhereClause("i.host = ?", host)
+	}
+	if url := req.GetQuery().GetRepoUrl(); url != "" {
+		q.AddWhereClause("i.repo_url = ?", url)
+	}
+	if branch := req.GetQuery().GetBranchName(); branch != "" {
+		q.AddWhereClause("i.branch_name = ?", branch)
+	}
+	if command := req.GetQuery().GetCommand(); command != "" {
+		q.AddWhereClause("i.command = ?", command)
+	}
+	if sha := req.GetQuery().GetCommitSha(); sha != "" {
+		q.AddWhereClause("i.commit_sha = ?", sha)
+	}
+	if group_id := req.GetQuery().GetGroupId(); group_id != "" {
+		q.AddWhereClause("i.group_id = ?", group_id)
+	}
+	roleClauses := query_builder.OrClauses{}
+	for _, role := range req.GetQuery().GetRole() {
+		roleClauses.AddOr("i.role = ?", role)
+	}
+	if roleQuery, roleArgs := roleClauses.Build(); roleQuery != "" {
+		q.AddWhereClause("("+roleQuery+")", roleArgs...)
+	}
+	if start := req.GetQuery().GetUpdatedAfter(); start.IsValid() {
+		q.AddWhereClause("i.updated_at_usec >= ?", start.AsTime().UnixMicro())
+	}
+	if end := req.GetQuery().GetUpdatedBefore(); end.IsValid() {
+		q.AddWhereClause("i.updated_at_usec < ?", end.AsTime().UnixMicro())
+	}
+
+	statusClauses := query_builder.OrClauses{}
+	for _, status := range req.GetQuery().GetStatus() {
+		switch status {
+		case inpb.OverallStatus_SUCCESS:
+			statusClauses.AddOr(`(invocation_status = ? AND success = ?)`, int(inpb.Invocation_COMPLETE_INVOCATION_STATUS), 1)
+		case inpb.OverallStatus_FAILURE:
+			statusClauses.AddOr(`(invocation_status = ? AND success = ?)`, int(inpb.Invocation_COMPLETE_INVOCATION_STATUS), 0)
+		case inpb.OverallStatus_IN_PROGRESS:
+			statusClauses.AddOr(`invocation_status = ?`, int(inpb.Invocation_PARTIAL_INVOCATION_STATUS))
+		case inpb.OverallStatus_DISCONNECTED:
+			statusClauses.AddOr(`invocation_status = ?`, int(inpb.Invocation_DISCONNECTED_INVOCATION_STATUS))
+		case inpb.OverallStatus_UNKNOWN_OVERALL_STATUS:
+			continue
+		default:
+			continue
+		}
+	}
+	statusQuery, statusArgs := statusClauses.Build()
+	if statusQuery != "" {
+		q.AddWhereClause(fmt.Sprintf("(%s)", statusQuery), statusArgs...)
+	}
+
+	// The underlying data is not precise enough to accurately support nanoseconds and there's no use case for it yet.
+	if req.GetQuery().GetMinimumDuration().GetNanos() != 0 || req.GetQuery().GetMaximumDuration().GetNanos() != 0 {
+		return nil, status.InvalidArgumentError("InvocationSearchService does not support nanoseconds in duration queries")
+	}
+
+	if req.GetQuery().GetMinimumDuration().GetSeconds() != 0 {
+		q.AddWhereClause(`duration_usec >= ?`, req.GetQuery().GetMinimumDuration().GetSeconds()*1000*1000)
+	}
+	if req.GetQuery().GetMaximumDuration().GetSeconds() != 0 {
+		q.AddWhereClause(`duration_usec <= ?`, req.GetQuery().GetMaximumDuration().GetSeconds()*1000*1000)
+	}
+
+	// Always add permissions check.
+	addPermissionsCheckToQuery(u, q)
+
+	sort := req.Sort
+	if sort == nil {
+		sort = defaultSortParams()
+	} else if req.Sort.SortField == inpb.InvocationSort_UNKNOWN_SORT_FIELD {
+		sort.SortField = defaultSortParams().SortField
+	}
+	switch sort.SortField {
+	case inpb.InvocationSort_CREATED_AT_USEC_SORT_FIELD:
+		q.SetOrderBy("created_at_usec", sort.Ascending)
+	case inpb.InvocationSort_UPDATED_AT_USEC_SORT_FIELD:
+		q.SetOrderBy("updated_at_usec", sort.Ascending)
+	case inpb.InvocationSort_DURATION_SORT_FIELD:
+		q.SetOrderBy("duration_usec", sort.Ascending)
+	case inpb.InvocationSort_ACTION_CACHE_HIT_RATIO_SORT_FIELD:
+		// Treat 0/0 as 100% cache hit rate to avoid divide-by-zero weirdness.
+		q.SetOrderBy(`IFNULL(
+			action_cache_hits / (action_cache_hits + action_cache_misses), 1)`,
+			sort.Ascending)
+	case inpb.InvocationSort_CONTENT_ADDRESSABLE_STORE_CACHE_HIT_RATIO_SORT_FIELD:
+		// Treat 0/0 as 100% cache hit rate to avoid divide-by-zero weirdness.
+		q.SetOrderBy(`IFNULL(
+			cas_cache_hits / (cas_cache_hits + cas_cache_misses), 1)`,
+			sort.Ascending)
+	case inpb.InvocationSort_CACHE_DOWNLOADED_SORT_FIELD:
+		q.SetOrderBy("total_download_size_bytes", sort.Ascending)
+	case inpb.InvocationSort_CACHE_UPLOADED_SORT_FIELD:
+		q.SetOrderBy("total_upload_size_bytes", sort.Ascending)
+	case inpb.InvocationSort_CACHE_TRANSFERRED_SORT_FIELD:
+		q.SetOrderBy("total_download_size_bytes + total_upload_size_bytes",
+			sort.Ascending)
+	case inpb.InvocationSort_UNKNOWN_SORT_FIELD:
+		alert.UnexpectedEvent("invocation_search_no_sort_order")
+	}
+
+	limitSize := defaultLimitSize
+	if req.Count > 0 {
+		limitSize = int64(req.Count)
+	}
+	q.SetLimit(limitSize)
+
+	offset := int64(0)
+	if strings.HasPrefix(req.PageToken, pageSizeOffsetPrefix) {
+		parsedOffset, err := strconv.ParseInt(strings.Replace(req.PageToken, pageSizeOffsetPrefix, "", 1), 10, 64)
+		if err != nil {
+			return nil, status.InvalidArgumentError("Error parsing pagination token")
+		}
+		offset = parsedOffset
+	} else if req.PageToken != "" {
+		return nil, status.InvalidArgumentError("Invalid pagination token")
+	}
+	q.SetOffset(offset)
+
+	qString, qArgs := q.Build()
+	tableInvocations, err := s.rawQueryInvocations(ctx, qString, qArgs...)
+	if err != nil {
+		return nil, err
+	}
+	rsp := &inpb.SearchInvocationResponse{}
+	for _, ti := range tableInvocations {
+		rsp.Invocation = append(rsp.Invocation, build_event_handler.TableInvocationToProto(ti))
+	}
+	if int64(len(rsp.Invocation)) == limitSize {
+		rsp.NextPageToken = pageSizeOffsetPrefix + strconv.FormatInt(offset+limitSize, 10)
+	}
+	return rsp, nil
+}

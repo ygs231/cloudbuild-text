@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+import "proto/user_id.proto";
+
+package context;
+option go_package = "github.com/buildbuddy-io/buildbuddy/proto/context";
+//option go_package = "./context";
+// Next ID: 5
+message RequestContext {
+  //表示请求的用户 ID。
+  //用于标识发起请求的具体用户。
+  user_id.UserId user_id = 1;
+
+  //表示请求的组 ID。
+  //如果未指定，系统会按照以下优先级顺序选择一个匹配的组：
+  //拥有已注册域名的任意组。
+  //默认组（除非配置中设置了 no_app_default_user_group）。
+  //用户自有的组（如果存在）。
+  //拥有写入令牌的任意组。
+  string group_id = 2;
+
+  //表示需要模拟的组 ID。
+  //使用此字段需要在安装级别配置特殊权限。
+  //允许以其他组的身份执行操作。
+  string impersonating_group_id = 4;
+
+
+ //表示当前日期在 UTC 时间和本地时间之间的时区偏移量（以分钟为单位）。
+  //例如，如果当前时区偏移量是 UTC-7，则该值应设置为 -((-7) * 60) = 420。
+  int32 timezone_offset_minutes = 3;
+}
+
+message ResponseContext {
+  // Nada. Zip. Zilch.
+}

@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="go build executor.go" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
+    <module name="cloudbuild-main" />
+    <working_directory value="$PROJECT_DIR$" />
+    <parameters value=" --config_file $PROJECT_DIR$/enterprise/config/executor.local.yaml" />
+    <kind value="FILE" />
+    <package value="github.com/ninja-cloudbuild/cloudbuild" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$/enterprise/server/cmd/executor/executor.go" />
+    <method v="2" />
+  </configuration>
+</component>

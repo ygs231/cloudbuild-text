@@ -1,0 +1,38 @@
+.text-input {
+  height: 40px;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid gray;
+  border-radius: 2px;
+}
+
+.text-input.dark {
+  background-color: #424242;
+  color: white;
+  caret-color: white;
+}
+
+.text-input::placeholder {
+  color: #aaa;
+}
+
+.text-input[readonly] {
+  background: #eee;
+}
+
+.text-input.invalid {
+  border: 1px solid #e53935;
+}
+
+/* Hide up/down buttons on number inputs. */
+.text-input::-webkit-outer-spin-button,
+.text-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+.text-input[type="number"] {
+  -moz-appearance: textfield;
+}

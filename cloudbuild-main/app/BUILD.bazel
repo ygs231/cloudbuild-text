@@ -1,0 +1,87 @@
+load("//rules/typescript:index.bzl", "ts_library")
+load("@npm//@bazel/esbuild:index.bzl", "esbuild")
+load("//rules/sha:index.bzl", "sha")
+
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "fastbuild",
+    values = {
+        "compilation_mode": "fastbuild",
+    },
+)
+
+esbuild(
+    name = "app_bundle",
+    args = {
+        "resolveExtensions": [
+            ".mjs",
+            ".js",
+        ],
+    },
+    define = {"process.env.NODE_ENV": '"production"'},
+    entry_points = ["app.tsx"],
+    metafile = False,
+    minify = select({
+        ":fastbuild": False,
+        "//conditions:default": True,
+    }),
+    deps = [
+        ":app",
+    ],
+)
+
+ts_library(
+    name = "app",
+    srcs = glob(["*.tsx"]),
+    deps = [
+        "//app/root",
+        "@npm//@types/react",
+        "@npm//@types/react-dom",
+        "@npm//react",
+        "@npm//react-dom",
+    ],
+)
+
+genrule(
+    name = "style",
+    srcs = [
+        "//app/root:root.css",
+        "//app/alert:alert.css",
+        "//app/compare:compare.css",
+        "//app/invocation:invocation.css",
+        "//app/terminal:terminal.css",
+        "//app/components/button:button.css",
+        "//app/components/dialog:dialog.css",
+        "//app/components/digest:digest.css",
+        "//app/components/input:input.css",
+        "//app/components/filter_input:filter_input.css",
+        "//app/components/link:link.css",
+        "//app/components/menu:menu.css",
+        "//app/components/modal:modal.css",
+        "//app/components/popup:popup.css",
+        "//app/components/select:select.css",
+        "//app/components/slider:slider.css",
+        "//app/components/radio:radio.css",
+        "//app/components/checkbox:checkbox.css",
+        "//app/components/spinner:spinner.css",
+    ],
+    outs = ["style.css"],
+    cmd_bash = """
+        touch out;
+        for f in $(SRCS); do
+            if [[ ! -d $$f ]]; then
+            (cat $$f; echo) >> out;
+            fi;
+        done;
+        cat out > $@;
+    """,
+)
+
+sha(
+    name = "sha",
+    srcs = [
+        ":style.css",
+        "//app:app_bundle",
+    ],
+)

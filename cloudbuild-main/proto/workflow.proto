@@ -1,0 +1,193 @@
+syntax = "proto3";
+
+import "proto/context.proto";
+
+package workflow;
+option go_package = "github.com/buildbuddy-io/buildbuddy/proto/workflow";
+message CreateWorkflowRequest {
+  // The request context.
+  context.RequestContext request_context = 1;
+
+  // The name of this workflow.
+  // Ex. "Let It Flow"
+  //
+  // DEPRECATED: Workflow names aren't used anywhere and we don't
+  // require them anymore.
+  string name = 2 [deprecated = true];
+
+  message GitRepo {
+    // The HTTPS URL of the Git repository that will be checked
+    // out and built as part of this project.
+    // Ex. "https://github.com/buildbuddy-io/buildbuddy-internal"
+    string repo_url = 1;
+
+    // The access token to use when cloning this repository.
+    //
+    // For Github, and Gitlab, this is known as a Personal Access Token.
+    //
+    // For Bitbucket, this is known as an App Password, which requires
+    // an associated username. The app password requires the following
+    // permissions: [webhooks: r+w, pull requests: r+w; repo: r+w]
+    //
+    // If omitted, this defaults to the access token for the linked
+    // GitHub account, if the repo URL is a GitHub URL. Otherwise,
+    // an error is returned.
+    //
+    // Ex. "ABASDBASDBASBD"
+    string access_token = 2;
+
+    // The username to use when cloning this repository.
+    // This is required for Bitbucket, whose "app passwords" require an
+    // associated username.
+    string username = 3;
+  }
+
+  // The git repository to associate with this project. For now, only a single
+  // git repository is supported.
+  GitRepo git_repo = 3;
+}
+
+message CreateWorkflowResponse {
+  // The response context.
+  context.ResponseContext response_context = 1;
+
+  // ID of the created workflow.
+  // Ex. "WF4576963743584254779"
+  string id = 2;
+
+  // The unique webhook URL for this project. Sending a POST request to this
+  // URL will trigger a build of this project.
+  // Ex. "https://app.buildbuddy.io/webhooks/workflows/abcd123letitflow"
+  string webhook_url = 3;
+
+  // Whether the server registered the webhook to a supported Git provider.
+  // This will be false for providers that do not yet have auto-registration
+  // implemented, in which case the user should be asked to manually register
+  // the webhook.
+  bool webhook_registered = 4;
+}
+
+message DeleteWorkflowRequest {
+  // The request context.
+  context.RequestContext request_context = 1;
+
+  // ID of the workflow to delete.
+  // Ex. "WF4576963743584254779"
+  string id = 2;
+}
+
+message DeleteWorkflowResponse {
+  // The response context.
+  context.ResponseContext response_context = 1;
+}
+
+message GetWorkflowsRequest {
+  // The request context.
+  context.RequestContext request_context = 1;
+}
+
+message GetWorkflowsResponse {
+  // The response context.
+  context.ResponseContext response_context = 1;
+
+  message Workflow {
+    // ID of the workflow to delete.
+    // Ex. "WF4576963743584254779"
+    string id = 1;
+
+    // The name of this workflow.
+    // Ex. "Let It Flow"
+    string name = 2;
+
+    // The HTTPS URL of the Git repository that will be checked
+    // out and built as part of this project.
+    // Ex. "https://github.com/buildbuddy-io/buildbuddy-internal"
+    string repo_url = 3;
+
+    // The unique webhook URL for this project. Sending a POST request to this
+    // URL will trigger a build of this project.
+    // Ex. "https://app.buildbuddy.io/webhooks/workflows/abcd123letitflow"
+    string webhook_url = 4;
+  }
+
+  repeated Workflow workflow = 2;
+}
+
+message ExecuteWorkflowRequest {
+  // The request context.
+  context.RequestContext request_context = 1;
+
+  // ID of the workflow to be executed.
+  // Ex. "WF4576963743584254779"
+  string workflow_id = 2;
+
+  // Name of the workflow action to execute. Corresponds to an action in
+  // buildbuddy.yaml, or an action name in the default workflow config if
+  // buildbuddy.yaml is missing from the repo.
+  // Ex. "Test all targets"
+  string action_name = 3;
+
+  // SHA of the commit to be checked out in order to execute the workflow.
+  // Ex. "e782592faf56da05cc0a243220689135e807958f"
+  string commit_sha = 4;
+
+  reserved 5;
+
+  // URL of the repo the commit was pushed to.
+  // Ex. "https://github.com/some-user/acme"
+  string pushed_repo_url = 6;
+
+  // Branch corresponding to the SHA to be checked out.
+  // Ex. "cool-feature"
+  string pushed_branch = 7;
+
+  // URL of the repo the commit will be merged into.
+  // Ex. "https://github.com/acme-inc/acme"
+  string target_repo_url = 8;
+
+  // For pull requests, the branch into which the pushed branch is being merged.
+  // For push events this should be set equal to the pushed branch.
+  // Ex. "main"
+  string target_branch = 9;
+
+  // Whether to run the workflow in a clean container. This prevents all
+  // existing workflow containers from being reused, so using this flag is not
+  // encouraged.
+  bool clean = 10;
+
+  // VISIBILITY build metadata used for the workflow invocation.
+  string visibility = 11;
+}
+
+message ExecuteWorkflowResponse {
+  // The response context.
+  context.ResponseContext response_context = 1;
+
+  // The invocation ID of the workflow execution.
+  string invocation_id = 2;
+}
+
+enum GitProvider {
+  UNKNOWN_GIT_PROVIDER = 0;
+  GITHUB = 1;
+}
+
+message Repo {
+  // Repo URL.
+  // ex: https://github.com/acme-inc/acme
+  string url = 1;
+}
+
+message GetReposRequest {
+  context.RequestContext request_context = 1;
+
+  // The provider to fetch repos for (required).
+  GitProvider git_provider = 2;
+}
+
+message GetReposResponse {
+  context.ResponseContext response_context = 1;
+
+  // Repos fetched from the provider.
+  repeated Repo repo = 2;
+}

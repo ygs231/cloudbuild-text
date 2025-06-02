@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: buildbuddy-dev
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: buildbuddy-app
+  namespace: buildbuddy-dev
+spec:
+  selector:
+    matchLabels:
+      app: buildbuddy-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: buildbuddy-app
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      containers:
+        - name: buildbuddy-app
+          image: gcr.io/flame-build/buildbuddy-app-dev:server_image
+          imagePullPolicy: Always
+          args:
+            - "--config_file=config/buildbuddy.dev.yaml"
+            - "--server_type=dev-buildbuddy-server"
+          env:
+            - name: ENV
+              value: "dev"
+            - name: SERVICE_NAME
+              value: "app-backend"
+            - name: VERSION
+              value: "prod-1.0"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 1985
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              httpHeaders:
+                - name: server-type
+                  value: dev-buildbuddy-server
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              httpHeaders:
+                - name: server-type
+                  value: dev-buildbuddy-server
+          volumeMounts:
+            - mountPath: /devdata
+              name: buildbuddy-app-data
+      volumes:
+        - name: buildbuddy-app-data
+          persistentVolumeClaim:
+            claimName: buildbuddy-app-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildbuddy-app-service
+  namespace: buildbuddy-dev
+spec:
+  selector:
+    app: buildbuddy-app
+  ports:
+    - name: http
+      protocol: "TCP"
+      port: 80
+      targetPort: 8080
+    - name: grpc
+      protocol: "TCP"
+      port: 1985
+      targetPort: 1985
+  type: LoadBalancer
+---
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: app-buildbuddy-dev-certificate
+  namespace: buildbuddy-dev
+spec:
+  domains:
+    - app.buildbuddy.dev
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: buildbuddy-app-ingress
+  namespace: buildbuddy-dev
+  annotations:
+    networking.gke.io/managed-certificates: "app-buildbuddy-dev-certificate"
+spec:
+  rules:
+    - host: app.buildbuddy.dev
+      http:
+        paths:
+          - backend:
+              serviceName: buildbuddy-app-invocation
+              servicePort: 80
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: buildbuddy-app-claim
+  namespace: buildbuddy-dev
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi

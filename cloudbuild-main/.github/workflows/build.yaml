@@ -1,0 +1,29 @@
+name: Build and Run Server
+on:
+  workflow_dispatch:
+
+jobs:
+  build_and_run:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Redis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y redis-server
+          redis-server --port 6379 --daemonize yes  
+
+      - name: Set up Bazel
+        run: |
+          wget https://github.com/bazelbuild/bazel/releases/download/6.0.0/bazel-6.0.0-installer-linux-x86_64.sh
+          chmod +x bazel-6.0.0-installer-linux-x86_64.sh
+          ./bazel-6.0.0-installer-linux-x86_64.sh --user
+          export PATH="$PATH:$HOME/bin"
+
+      - name: Build Server
+        run: bazel build //enterprise/server:server
+
+      - name: Run Server
+        run: bazel run //enterprise/server:server

@@ -1,0 +1,13 @@
+app:
+  build_buddy_url: "https://app.buildbuddy.dev"
+database:
+  data_source: "sqlite3:///devdata/buildbuddy.db"
+storage:
+  ttl_seconds: 604800 # 1 week in seconds
+  disk:
+    root_directory: /devdata/
+  enable_chunked_event_logs: true
+cache:
+  ttl_seconds: 604800 # One week in seconds.
+  disk:
+    root_directory: /devdata/cache

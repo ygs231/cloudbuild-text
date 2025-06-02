@@ -1,0 +1,34 @@
+name: Update Website
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - "website/**"
+      - "server/metrics/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'website skip')"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build Website
+        run: |
+          bazel build //website:website --config=ci --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_ORG_API_KEY }}
+          rm -rf website/build
+          mkdir -p website/build
+          cd website/build
+          tar -xf ../../bazel-bin/website/website.tar
+          touch .nojekyll
+
+      - name: Deploy Website 🚀
+        uses: JamesIves/github-pages-deploy-file@4.1.0
+        with:
+          branch: gh-pages
+          folder: website/build

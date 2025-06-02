@@ -1,0 +1,146 @@
+.base-button {
+  padding: 8px 16px;
+  min-height: 40px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: normal;
+  -webkit-font-smoothing: inherit;
+  -moz-osx-font-smoothing: inherit;
+
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filled-button {
+  background-color: #263238;
+  color: #fff;
+}
+
+.filled-button:focus {
+  outline: 2px solid #1e88e5;
+}
+
+.filled-button.destructive {
+  background-color: #b71c1c;
+}
+
+.filled-button:hover {
+  background-color: #455a64;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: 100ms;
+}
+
+.filled-button.destructive:hover {
+  background-color: #c62828;
+}
+
+.filled-button:active {
+  box-shadow: none;
+}
+
+/* Extra specificity here so the [disabled] style takes precedence. */
+.filled-button.filled-button.filled-button[disabled],
+.filled-button.filled-button.filled-button[disabled]:hover {
+  transition: 100ms ease;
+  background: #bbb;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.outlined-button {
+  background: transparent;
+  border: 1px solid rgba(20, 20, 20, 0.1);
+  transition: 200ms ease;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.outlined-button:focus {
+  border: 1px solid rgba(20, 20, 20, 0.5);
+}
+
+.outlined-button.destructive {
+  color: #c62828;
+}
+
+.outlined-button:hover {
+  border: 1px solid transparent;
+  background: rgba(20, 20, 20, 0.1);
+}
+
+.outlined-button:active {
+  background: rgba(20, 20, 20, 0.2);
+}
+
+.outlined-button[disabled] {
+  background: #bbb;
+  cursor: not-allowed;
+}
+
+.outlined-button span {
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.base-button.checkbox-button {
+  padding: 0;
+}
+
+.checkbox-button label {
+  padding: 8px 16px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-button input {
+  cursor: pointer;
+}
+
+.checkbox-button label > :not(:last-child) {
+  margin-right: 8px;
+}
+
+.outlined-button-group {
+  background: transparent;
+  display: flex;
+  border-radius: 8px;
+  box-sizing: border-box;
+  border: 1px solid rgba(20, 20, 20, 0.1);
+}
+
+.outlined-button-group > .outlined-button {
+  border: none;
+  min-height: 38px; /* = 40px usual min-height - 1px for top + bottom border from parent */
+}
+
+.outlined-button-group > .outlined-button:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 1px solid rgba(20, 20, 20, 0.1);
+}
+
+.outlined-button-group > .outlined-button:not(:first-child) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.icon-button {
+  padding: 0;
+  width: 40px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.big-button {
+  padding: 16px 32px;
+}

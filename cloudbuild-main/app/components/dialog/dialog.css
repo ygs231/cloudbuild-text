@@ -1,0 +1,68 @@
+.dialog-wrapper {
+  max-height: 100%;
+}
+
+.dialog-card {
+  max-height: inherit;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+
+  max-width: 80vw;
+  width: 640px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.27), 0 3px 5px rgba(0, 0, 0, 0.12);
+
+  padding: 16px 0;
+  --dialog-side-padding: 24px;
+}
+
+.dialog-card .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  margin-top: 8px;
+  padding: 0 var(--dialog-side-padding);
+}
+
+.dialog-header > :not(:last-child) {
+  margin-right: 8px;
+}
+
+.dialog-title {
+  font-size: 28px;
+}
+
+.dialog-body {
+  padding: 8px var(--dialog-side-padding);
+  overflow-y: auto;
+}
+
+.dialog-body p {
+  margin-top: 0;
+}
+
+.dialog-footer {
+  display: flex;
+  padding: 0 var(--dialog-side-padding);
+  margin-top: 8px;
+  /* Convert bottom margin to padding so that the shadow can render. */
+  padding-bottom: 8px;
+  margin-bottom: -8px;
+}
+
+.dialog-footer-buttons {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.dialog-footer-buttons > :not(:last-child) {
+  margin-right: 16px;
+}
+
+.dialog-form {
+  margin: 0;
+}

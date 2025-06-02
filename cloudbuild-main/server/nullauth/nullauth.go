@@ -1,0 +1,86 @@
+package nullauth
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/ninja-cloudbuild/cloudbuild/server/interfaces"
+	"github.com/ninja-cloudbuild/cloudbuild/server/tables"
+	"github.com/ninja-cloudbuild/cloudbuild/server/util/status"
+)
+
+func NewNullAuthenticator(anonymousUsageEnabled bool, adminGroupID string) *NullAuthenticator {
+	return &NullAuthenticator{
+		adminGroupID:           adminGroupID,
+		anonymousUsageDisabled: !anonymousUsageEnabled,
+	}
+}
+
+type NullAuthenticator struct {
+	adminGroupID           string
+	anonymousUsageDisabled bool
+}
+
+func (a *NullAuthenticator) AdminGroupID() string {
+	return a.adminGroupID
+}
+
+func (a *NullAuthenticator) AnonymousUsageEnabled() bool {
+	return !a.anonymousUsageDisabled
+}
+
+func (a *NullAuthenticator) PublicIssuers() []string {
+	return []string{}
+}
+
+func (a *NullAuthenticator) SSOEnabled() bool {
+	return false
+}
+
+func (a *NullAuthenticator) AuthenticatedHTTPContext(w http.ResponseWriter, r *http.Request) context.Context {
+	return r.Context()
+}
+
+func (a *NullAuthenticator) AuthenticatedGRPCContext(ctx context.Context) context.Context {
+	return ctx
+}
+
+func (a *NullAuthenticator) AuthenticatedUser(ctx context.Context) (interfaces.UserInfo, error) {
+	return nil, status.UnauthenticatedError("Auth not implemented")
+}
+
+func (a *NullAuthenticator) FillUser(ctx context.Context, user *tables.User) error {
+	return nil
+}
+
+func (a *NullAuthenticator) Login(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (a *NullAuthenticator) Auth(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (a *NullAuthenticator) Logout(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (a *NullAuthenticator) ParseAPIKeyFromString(input string) (string, error) {
+	return "", nil
+}
+
+func (a *NullAuthenticator) AuthContextFromAPIKey(ctx context.Context, apiKey string) context.Context {
+	return ctx
+}
+
+func (a *NullAuthenticator) AuthenticateGRPCRequest(ctx context.Context) (interfaces.UserInfo, error) {
+	return nil, nil
+}
+
+func (a *NullAuthenticator) TrustedJWTFromAuthContext(ctx context.Context) string {
+	return ""
+}
+
+func (a *NullAuthenticator) AuthContextFromTrustedJWT(ctx context.Context, jwt string) context.Context {
+	return ctx
+}

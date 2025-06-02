@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+import "proto/context.proto";
+
+package github;
+option go_package = "github.com/buildbuddy-io/buildbuddy/proto/github";
+// UnlinkGitHubAccountRequest is a request to unlink the GitHub account
+// associated with the group selected in the request context.
+message UnlinkGitHubAccountRequest {
+  context.RequestContext request_context = 1;
+}
+
+message UnlinkGitHubAccountResponse {
+  context.ResponseContext response_context = 1;
+
+  // Warnings encountered while unlinking the account. For example, we may fail
+  // to delete webhooks if the linked GitHub token has already been revoked via
+  // the GitHub UI.
+  repeated string warning = 2;
+}

@@ -1,0 +1,98 @@
+load("//rules/typescript:index.bzl", "ts_library")
+load("@npm//@bazel/esbuild:index.bzl", "esbuild", "esbuild_config")
+load("//rules/sha:index.bzl", "sha")
+
+package(default_visibility = ["//enterprise:__subpackages__"])
+
+config_setting(
+    name = "fastbuild",
+    values = {"compilation_mode": "fastbuild"},
+)
+
+esbuild_config(
+    name = "esbuild_config",
+    config_file = "esbuild.config.mjs",
+)
+
+esbuild(
+    name = "app_bundle",
+    args = {
+        "resolveExtensions": [
+            ".mjs",
+            ".js",
+        ],
+        "loader": {
+            ".ttf": "binary",
+            ".css": "binary",
+        },
+    },
+    config = ":esbuild_config",
+    define = {"process.env.NODE_ENV": '"production"'},
+    entry_points = [
+        "app.tsx",
+    ],
+    metafile = False,
+    minify = select({
+        ":fastbuild": False,
+        "//conditions:default": True,
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":enterprise_app",
+    ],
+)
+
+ts_library(
+    name = "enterprise_app",
+    srcs = glob(["*.tsx"]),
+    deps = [
+        "//enterprise/app/root",
+        "@npm//@types/react",
+        "@npm//@types/react-dom",
+        "@npm//react",
+        "@npm//react-dom",
+    ],
+)
+
+genrule(
+    name = "style",
+    srcs = [
+        "//enterprise/app/api_keys:api_keys.css",
+        "//enterprise/app/history:history.css",
+        "//enterprise/app/org:org.css",
+        "//enterprise/app/settings:settings.css",
+        "//enterprise/app/quota:quota.css",
+        "//enterprise/app/secrets:secrets.css",
+        "//enterprise/app/workflows:workflows.css",
+        "//enterprise/app/sidebar:sidebar.css",
+        "//enterprise/app/tap:tap.css",
+        "//enterprise/app/trends:trends.css",
+        "//enterprise/app/usage:usage.css",
+        "//enterprise/app/root:root.css",
+        "//enterprise/app/code:code.css",
+        "//enterprise/app/code:monaco.css",
+        "//enterprise/app/executors:executors.css",
+        "//enterprise/app/filter:css",
+        "//app:style.css",
+    ],
+    outs = ["style.css"],
+    cmd_bash = """
+        touch out;
+        for f in $(SRCS); do
+            if [[ ! -d $$f ]]; then
+            (cat $$f; echo) >> out;
+            fi;
+        done;
+        cat out > $@;
+    """,
+    visibility = ["//visibility:public"],
+)
+
+sha(
+    name = "sha",
+    srcs = [
+        ":style.css",
+        "//enterprise/app:app_bundle",
+    ],
+    visibility = ["//visibility:public"],
+)

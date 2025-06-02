@@ -1,0 +1,90 @@
+{
+  "assign": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "cgocall": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "composites": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "copylocks": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "exhaustive": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    },
+    "analyzer_flags": {
+      "default-signifies-exhaustive": "true"
+    }
+  },
+  "fieldalignment": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    },
+    "exclude_files": {
+      ".*": "Disable entirely for now",
+      ".*\\.pb\\.go": "Auto-generated proto files"
+    }
+  },
+  "lostcancel": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "nilness": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    },
+    "exclude_files": {
+      ".*_cgo_gotypes\\.go": "cgo internal files"
+    }
+  },
+  "stdmethods": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "stringintconv": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "structtag": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "unreachable": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  },
+  "unsafeptr": {
+    "only_files": {
+      "/server/": "Server code",
+      "/enterprise/server/": "Enterprise server code"
+    }
+  }
+}
